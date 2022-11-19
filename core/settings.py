@@ -1,4 +1,5 @@
 from datetime import timedelta
+import os
 from pathlib import Path
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
@@ -116,22 +117,26 @@ STATIC_URL = 'static/'
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 REST_FRAMEWORK = {
+    'NON_FIELD_ERRORS_KEY': 'error',
     'DEFAULT_AUTHENTICATION_CLASSES': (
         'rest_framework_simplejwt.authentication.JWTAuthentication',
     ),
     'DEFAULT_SCHEMA_CLASS': 'drf_spectacular.openapi.AutoSchema',
 }
 
+# Swagger settings
+
 SPECTACULAR_SETTINGS = {
-    # Swagger settings
 
     'TITLE': 'Custom User API',
     'DESCRIPTION': 'All Api for the custom user api',
     'VERSION': '1.0.0',
     'SERVE_INCLUDE_SCHEMA': False,
     'COMPONENT_SPLIT_REQUEST': True,
-
 }
+
+
+# simple jwt settings
 
 SIMPLE_JWT = {
     'ACCESS_TOKEN_LIFETIME': timedelta(minutes=5),
@@ -166,3 +171,29 @@ SIMPLE_JWT = {
 }
 
 AUTH_USER_MODEL = 'user.User'
+
+
+# email smtp
+
+# EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
+# EMAIL_USE_TLS = True
+# EMAIL_HOST = os.environ.get('EMAIL_HOST')
+# EMAIL_PORT = 587
+# EMAIL_HOST_USER = os.environ.get('EMAIL_HOST_USER')
+# EMAIL_HOST_PASSWORD = os.environ.get('EMAIL_HOST_PASSWORD')
+
+# EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
+EMAIL_HOST = 'smtp.zoho.com'
+EMAIL_HOST_USER = 'mahmoud.lebda@scopeims.com'
+EMAIL_HOST_PASSWORD = '2aryBDsVcSn7'
+EMAIL_PORT = 465
+EMAIL_USE_TLS = True
+EMAIL_USE_SSL = False
+
+
+# EMAIL_HOST = 'smtp.zoho.com'
+# EMAIL_HOST_USER = 'user@example.com'
+# EMAIL_HOST_PASSWORD = 'password'
+# EMAIL_PORT = 587
+# EMAIL_USE_TLS = True
+# EMAIL_USE_SSL = False

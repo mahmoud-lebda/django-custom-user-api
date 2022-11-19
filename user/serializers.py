@@ -12,6 +12,8 @@ from rest_framework import serializers
 
 class UserSerializer(serializers.ModelSerializer):
     """Serializer for the user objects."""
+    # password = serializers.CharField(
+    #     max_length=68, min_length=6, write_only=True)
 
     class Meta:
         model = get_user_model()
