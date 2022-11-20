@@ -3,6 +3,7 @@ Views for the user API.
 """
 from django.contrib.sites.shortcuts import get_current_site
 from django.urls import reverse
+from django.conf import settings
 from django.contrib.auth import (
     get_user_model,
 )
@@ -12,6 +13,8 @@ from rest_framework.authtoken.views import ObtainAuthToken
 from rest_framework.settings import api_settings
 from rest_framework.response import Response
 from rest_framework_simplejwt.tokens import RefreshToken
+
+import jwt
 
 from .serializers import (
     UserSerializer,
@@ -56,5 +59,8 @@ class ManageUSer(generics.RetrieveUpdateAPIView):
 
 
 class VerifyEmail(generics.GenericAPIView):
-    def get(self):
-        pass
+    pass
+    # def get(self, request):
+    #     token = request.Get.get('token')
+    #     try:
+    #         jwt.decode(token, settings.SECRET_KEY)
