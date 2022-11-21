@@ -8,7 +8,7 @@ from django.contrib.auth import (
     get_user_model,
 )
 
-from rest_framework import generics, permissions, status
+from rest_framework import generics, permissions, status, views
 from rest_framework.authtoken.views import ObtainAuthToken
 from rest_framework.settings import api_settings
 from rest_framework.response import Response
@@ -18,8 +18,11 @@ import jwt
 
 from .serializers import (
     UserSerializer,
+    EmailVerificationSerializer,
 )
 from .utils import Util
+from drf_spectacular.utils import extend_schema, OpenApiParameter, OpenApiExample
+from drf_spectacular.types import OpenApiTypes
 
 
 class RegisterView(generics.CreateAPIView):
@@ -58,9 +61,37 @@ class ManageUSer(generics.RetrieveUpdateAPIView):
         return self.request.user
 
 
-class VerifyEmail(generics.GenericAPIView):
-    pass
-    # def get(self, request):
-    #     token = request.Get.get('token')
-    #     try:
-    #         jwt.decode(token, settings.SECRET_KEY)
+class VerifyEmail(views.APIView):
+    """Manage the user email verify."""
+
+    serializer_class = EmailVerificationSerializer
+
+    @extend_schema(
+        # add token parameters added to the schema
+        parameters=[
+            OpenApiParameter(name='token', description='Email verify token', required=True, type=str),
+        ]
+    )
+    def get(self, request):
+        """
+        Retrive token from request and verify user email if valied.
+        jwt token payload:
+            'token_type': 'access',
+            'exp': 1669013732,
+            'iat': 1669013432,
+            'jti': 'b934c5640c43407ca2b2dcfae5b80fa2',
+            'user_id': 18
+        """
+        token = request.GET.get('token')
+        try:
+            payload = jwt.decode(jwt=token, key=settings.SECRET_KEY, algorithms=['HS256'])
+            user = get_user_model().objects.get(id=payload['user_id'])
+            if not user.is_verified:
+                user.is_verified = True
+                user.save()
+            return Response({'email': 'Successfully activated'}, status=status.HTTP_200_OK)
+
+        except jwt.ExpiredSignatureError:
+            return Response({'error': 'Activation Expired'}, status=status.HTTP_400_BAD_REQUEST)
+        except jwt.DecodeError:
+            return Response({'error': 'Invaled token'}, status=status.HTTP_400_BAD_REQUEST)

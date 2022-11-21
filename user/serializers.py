@@ -32,3 +32,11 @@ class UserSerializer(serializers.ModelSerializer):
             user.save()
 
         return user
+
+
+class EmailVerificationSerializer(serializers.ModelSerializer):
+    token = serializers.CharField(max_length=555)
+
+    class Meta:
+        model = get_user_model()
+        fields = ['token']
