@@ -1,6 +1,6 @@
 # Django Custom User API
 
-The Django’s built-in authentication system is great but to build a real-world project, the official `Django documentation <https://docs.djangoproject.com/en/4.1/topics/auth/customizing/>`_ highly recommends using a custom user model instead. Commonly we want to store a few more data related to our User and authenticate using social media.
+The Django’s built-in authentication system is great but to build a real-world project, the official [Django documentation](https://docs.djangoproject.com/en/4.1/topics/auth/customizing/) highly recommends using a custom user model instead. Commonly we want to store a few more data related to our User and authenticate using social media.
 it's recommended to always use a custom user model for all new Django projects even if you don't need to add any custom user fields in the beginning.
 
 this project is an example for build custom user model api
