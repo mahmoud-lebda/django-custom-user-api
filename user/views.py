@@ -19,6 +19,7 @@ import jwt
 from .serializers import (
     UserSerializer,
     EmailVerificationSerializer,
+    LoginSerializer,
 )
 from .utils import Util
 from drf_spectacular.utils import extend_schema, OpenApiParameter, OpenApiExample
@@ -95,3 +96,16 @@ class VerifyEmail(views.APIView):
             return Response({'error': 'Activation Expired'}, status=status.HTTP_400_BAD_REQUEST)
         except jwt.DecodeError:
             return Response({'error': 'Invaled token'}, status=status.HTTP_400_BAD_REQUEST)
+
+
+class LoginAPIView(generics.CreateAPIView):
+
+    serializer_class = LoginSerializer
+
+    def post(self, request, *args, **kwargs):
+
+        serializer = self.serializer_class(data=request.data)
+        serializer.is_valid(raise_exception=True)
+
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
