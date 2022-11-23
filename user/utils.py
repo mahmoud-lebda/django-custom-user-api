@@ -3,8 +3,10 @@ import smtplib
 from email.mime.text import MIMEText
 from django.conf import settings
 
+
 class Util:
     """utility function"""
+
     @staticmethod
     def send_email(data):
         """

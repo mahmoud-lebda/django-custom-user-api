@@ -8,14 +8,18 @@ this project is an example for build custom user model api
 ## Features
 
 * Swagger
+* well documented
+* manualy build all api no third party
+
+
+## API Endpoint
+
 * Register New User API
 * Email Verify API
 * Token API
 * Refresh token API
 * User profile API
 * Edit profile API
-
-
 
 ## Local development
 To run this project in your development machine, follow these steps:
