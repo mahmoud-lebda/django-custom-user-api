@@ -40,6 +40,7 @@ class User(AbstractBaseUser, PermissionsMixin):
     """User fields in the system."""
     email = models.EmailField(max_length=255, unique=True)
     name = models.CharField(max_length=255)
+    otp = models.IntegerField(null=True, blank=True)
     is_verified = models.BooleanField(default=False)
     is_active = models.BooleanField(default=True)
     is_staff = models.BooleanField(default=False)
