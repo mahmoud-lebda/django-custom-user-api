@@ -2,6 +2,7 @@
 Views for the user API.
 """
 import random
+import datetime
 
 from django.contrib.sites.shortcuts import get_current_site
 from django.urls import reverse
@@ -35,7 +36,7 @@ from .utils import Util
 
 
 class RegisterView(generics.CreateAPIView):
-    """Create a new user in the system."""
+    """Create a new user in the system and send email virefy otp with end date."""
     serializer_class = UserSerializer
     permission_classes = [permissions.AllowAny]
 
@@ -44,11 +45,8 @@ class RegisterView(generics.CreateAPIView):
         response_data = super(RegisterView, self).create(
             request, *args, **kwargs)
         user = get_user_model().objects.get(email=request.data['email'])
-        otp = random.randint(1000, 9999)
-        user.otp = otp
-        user.save()
 
-        email_body = f'Hi {user.name} use this code to activate account {otp}'
+        email_body = f'Hi {user.name} use this code to activate account {user.otp} this code will be valid for 3 days'
         data = {'email_body': email_body, 'to_email': user.email,
                 'email_subject': 'Verify yout email'}
 
@@ -76,7 +74,9 @@ class VerifyEmail(views.APIView):
         # add token parameters added to the schema
         parameters=[
             OpenApiParameter(
-                name='token', description='Email verify token', required=True, type=str),
+                name='otp', description='Email verify otp', required=True, type=int),
+            OpenApiParameter(
+                name='userid', description='User ID', required=True, type=int),
         ]
     )
     def get(self, request):
@@ -89,20 +89,33 @@ class VerifyEmail(views.APIView):
             'jti': 'b934c5640c43407ca2b2dcfae5b80fa2',
             'user_id': 18
         """
-        token = request.GET.get('token')
+        otp = int(request.GET.get('otp'))
+        userid = request.GET.get('userid')
+
         try:
-            payload = jwt.decode(
-                jwt=token, key=settings.SECRET_KEY, algorithms=['HS256'])
-            user = get_user_model().objects.get(id=payload['user_id'])
+            user = get_user_model().objects.get(id=userid)
+            if not user:
+                return Response({'error': 'user not exist'}, status=status.HTTP_400_BAD_REQUEST)
+
+            if user.is_verified:
+                return Response({'error': 'user is already verify'}, status=status.HTTP_400_BAD_REQUEST)
+
+            if user.otp != otp:
+                return Response({'error': 'wrong otp'}, status=status.HTTP_400_BAD_REQUEST)
+
+            if not (user.otp_end_date - datetime.datetime.now(datetime.timezone.utc)).days > 0 :
+                return Response({'error': 'otp expired'}, status=status.HTTP_400_BAD_REQUEST)
+
             if not user.is_verified:
                 user.is_verified = True
+                user.otp = None
+                user.otp_end_date = None
                 user.save()
+
             return Response({'email': 'Successfully activated'}, status=status.HTTP_200_OK)
 
-        except jwt.ExpiredSignatureError:
-            return Response({'error': 'Activation Expired'}, status=status.HTTP_400_BAD_REQUEST)
-        except jwt.DecodeError:
-            return Response({'error': 'Invaled token'}, status=status.HTTP_400_BAD_REQUEST)
+        except Exception as e:
+            print(f'mmmmmmmmmmmm ............ errrrrrrrrrrrrrr {e}')
 
 
 class LoginAPIView(generics.GenericAPIView):

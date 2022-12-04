@@ -1,11 +1,13 @@
 """
 Serializers for the user API View.
 """
+import random
+import datetime
+
 from django.contrib.auth import (
     get_user_model,
     authenticate
 )
-
 from django.utils.translation import gettext as _
 from django.contrib.auth.tokens import PasswordResetTokenGenerator
 from django.utils.encoding import smart_str, force_str, force_bytes, DjangoUnicodeDecodeError
@@ -17,8 +19,6 @@ from rest_framework.exceptions import AuthenticationFailed
 
 class UserSerializer(serializers.ModelSerializer):
     """Serializer for the user objects."""
-    # password = serializers.CharField(
-    #     max_length=68, min_length=6, write_only=True)
 
     class Meta:
         model = get_user_model()
@@ -26,7 +26,13 @@ class UserSerializer(serializers.ModelSerializer):
         extra_kwargs = {'password': {'write_only': True, 'min_length': 5}}
 
     def create(self, validated_data):
-        return get_user_model().objects.create_user(**validated_data)
+        data = validated_data
+
+        # create otp for email verify
+        data['otp'] = random.randint(1000, 9999)
+        data['otp_end_date'] = datetime.datetime.now() + datetime.timedelta(days=3)
+
+        return get_user_model().objects.create_user(**data)
 
     def update(self, instance, validated_data):
         password = validated_data.pop('password', None)
@@ -40,11 +46,12 @@ class UserSerializer(serializers.ModelSerializer):
 
 
 class EmailVerificationSerializer(serializers.ModelSerializer):
-    token = serializers.CharField(max_length=555)
+    otp = serializers.IntegerField()
+    userid = serializers.IntegerField()
 
     class Meta:
         model = get_user_model()
-        fields = ['token']
+        fields = ['otp', 'userid']
 
 
 class LoginSerializer(serializers.ModelSerializer):
