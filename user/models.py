@@ -1,6 +1,8 @@
 """
 Users Database models.
 """
+import random
+import datetime
 
 from django.db import models
 from django.contrib.auth.models import (
@@ -10,7 +12,7 @@ from django.contrib.auth.models import (
 )
 
 from rest_framework_simplejwt.tokens import RefreshToken
-
+import pytz
 
 
 class UserManager(BaseUserManager):
@@ -42,7 +44,7 @@ class User(AbstractBaseUser, PermissionsMixin):
     name = models.CharField(max_length=255)
     otp = models.IntegerField(null=True, blank=True)
     otp_end_date = models.DateTimeField(null=True, blank=True)
-    is_verified = models.BooleanField(default=False)
+    is_verified = models.BooleanField(default=True)
     is_active = models.BooleanField(default=True)
     is_staff = models.BooleanField(default=False)
     created_at = models.DateTimeField(auto_now_add=True)
@@ -58,3 +60,7 @@ class User(AbstractBaseUser, PermissionsMixin):
             'refresh': str(refresh),
             'access': str(refresh.access_token)
         }
+
+    def otp_token(self):
+        self.otp = random.randint(100000, 999999)
+        self.otp_end_date = datetime.datetime.now(datetime.timezone.utc) + datetime.timedelta(days=3)

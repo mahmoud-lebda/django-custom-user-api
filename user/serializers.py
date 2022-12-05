@@ -27,11 +27,6 @@ class UserSerializer(serializers.ModelSerializer):
 
     def create(self, validated_data):
         data = validated_data
-
-        # create otp for email verify
-        data['otp'] = random.randint(1000, 9999)
-        data['otp_end_date'] = datetime.datetime.now() + datetime.timedelta(days=3)
-
         return get_user_model().objects.create_user(**data)
 
     def update(self, instance, validated_data):
