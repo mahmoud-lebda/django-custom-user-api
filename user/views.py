@@ -1,7 +1,7 @@
 """
 Views for the user API.
 """
-
+import random
 import datetime
 
 from django.contrib.auth import get_user_model
@@ -20,9 +20,51 @@ from .serializers import (
     LoginSerializer,
     RequestPasswordEmailRequestSerializer,
     SetNewPasswordSerializer,
+    ResendEmailVerifySerializer,
 )
 
 from core.utils import Util
+
+
+def generate_new_user_otp(user):
+    """Generate Otp token for user"""
+    now_datetime = datetime.datetime.now(datetime.timezone.utc)
+
+    # check if there is no active otp
+    if user.otp and (user.otp_end_date - now_datetime).days > 0:
+        pass
+    else:
+        user.otp = random.randint(100000, 999999)
+        user.otp_end_date = now_datetime + datetime.timedelta(days=3)
+        user.save()
+
+
+def clear_user_otp_token(user):
+    """Clear user otp token used when there is no need for token anymore"""
+    user.otp = None
+    user.otp_end_date = None
+    user.save()
+
+
+class WrongOTP(Exception):
+    """Exception raised when Wrong Otp"""
+    pass
+
+
+class OTPExpired(Exception):
+    """Exception raised when Otp Expired"""
+    pass
+
+
+def validate_token(user, otp):
+    """Validate user otp function"""
+    now_datetime = datetime.datetime.now(datetime.timezone.utc)
+
+    if user.otp != otp:
+        raise WrongOTP
+
+    if not (user.otp_end_date - now_datetime).days > 0:
+        raise OTPExpired
 
 
 class RegisterView(generics.CreateAPIView):
@@ -38,8 +80,7 @@ class RegisterView(generics.CreateAPIView):
         # create otp for email verification
         user = get_user_model().objects.get(email=request.data['email'])
         user.is_verified = False
-        user.otp_token()
-        user.save()
+        generate_new_user_otp(user)
 
         # Create and send email
         email_body = f'Hi {user.name} thank you for joining my app, you just need to confirm that we got your ' \
@@ -50,8 +91,104 @@ class RegisterView(generics.CreateAPIView):
 
         Util.send_email(data)
 
-        return Response({'email': 'user register completed, and email has been sent to you to actvate your account'}, status=status.HTTP_201_CREATED)
+        return Response({'email': 'user register completed, and email has been sent to you to actvate your account'},
+                        status=status.HTTP_201_CREATED)
 
+
+class ReSendUserEmailVerifyView(views.APIView):
+    serializer_class = ResendEmailVerifySerializer
+
+    def post(self, request):
+        email = request.data['email']
+
+        if not get_user_model().objects.filter(email=email).exists():
+            return Response({'error': 'user not exist'}, status=status.HTTP_400_BAD_REQUEST)
+        user = get_user_model().objects.get(email=email)
+
+        if user.is_verified:
+                return Response({'error': 'user is already verify'}, status=status.HTTP_400_BAD_REQUEST)
+
+        user.is_verified = False
+        generate_new_user_otp(user)
+
+        # Create and send email
+        email_body = f'Hi {user.name} thank you for joining my app, you just need to confirm that we got your ' \
+                     f'email right \n Your verification code: {user.otp} \n this code will expire in 3 days ' \
+                     f'\n Welcome and thanks'
+        data = {'email_body': email_body, 'to_email': user.email,
+                'email_subject': 'Please confirm your email'}
+
+        Util.send_email(data)
+
+        return Response({'email': 'email has been sent to you to actvate your account'},
+                        status=status.HTTP_201_CREATED)
+
+
+class VerifyEmailView(views.APIView):
+    """Manage the user email verify."""
+
+    serializer_class = EmailVerificationSerializer
+
+    @extend_schema(
+        # add token parameters added to the schema
+        parameters=[
+            OpenApiParameter(
+                name='email', description='Email', required=True, type=str),
+            OpenApiParameter(
+                name='otp', description='Email verify otp', required=True, type=int),
+        ]
+    )
+    def post(self, request):
+        """
+        Retrieve Otp from request and verify user email if valid.
+        """
+        try:
+            otp = request.data['otp']
+            email = request.data['email']
+
+            if not get_user_model().objects.filter(email=email).exists():
+                return Response({'error': 'user not exist'}, status=status.HTTP_400_BAD_REQUEST)
+
+            user = get_user_model().objects.get(email=email)
+
+            if user.is_verified:
+                return Response({'error': 'user is already verify'}, status=status.HTTP_400_BAD_REQUEST)
+
+            validate_token(user, otp)
+
+            if not user.is_verified:
+                user.is_verified = True
+                user.save()
+                clear_user_otp_token(user)
+
+            return Response({'email': 'Successfully activated'}, status=status.HTTP_200_OK)
+
+        except WrongOTP:
+            return Response({'error': 'wrong otp'}, status=status.HTTP_400_BAD_REQUEST)
+        except OTPExpired:
+            return Response({'error': 'otp expired'}, status=status.HTTP_400_BAD_REQUEST)
+
+
+class RequestPasswordResetEmail(generics.GenericAPIView):
+    serializer_class = RequestPasswordEmailRequestSerializer
+
+    def post(self, request):
+        # serializer = self.serializer_class(data=request.data)
+
+        email = request.data['email']
+
+        if get_user_model().objects.filter(email=email).exists():
+            user = get_user_model().objects.get(email=email)
+            generate_new_user_otp(user)
+
+        email_body = f'hello {user.name}, \n Use the code below to reset your password \n {user.otp} \n code will expire in 3 days'
+
+        data = {'email_body': email_body, 'to_email': user.email,
+                'email_subject': 'Reset yout password'}
+
+        Util.send_email(data)
+
+        return Response({'success': 'We have sent you link to reset your password'}, status=status.HTTP_200_OK)
 
 class ManageUSer(generics.RetrieveUpdateAPIView):
     """Manage the authenticated user."""
@@ -63,96 +200,15 @@ class ManageUSer(generics.RetrieveUpdateAPIView):
         return self.request.user
 
 
-class VerifyEmail(views.APIView):
-    """Manage the user email verify."""
-
-    serializer_class = EmailVerificationSerializer
-
-    @extend_schema(
-        # add token parameters added to the schema
-        parameters=[
-            OpenApiParameter(
-                name='email', description='User ID', required=True, type=str),
-            OpenApiParameter(
-                name='otp', description='Email verify otp', required=True, type=int),
-
-        ]
-    )
-    def get(self, request):
-        """
-        Retrieve token from request and verify user email if valied.
-        jwt token payload:
-            'token_type': 'access',
-            'exp': 1669013732,
-            'iat': 1669013432,
-            'jti': 'b934c5640c43407ca2b2dcfae5b80fa2',
-            'user_id': 18
-        """
-        try:
-
-            otp = int(request.GET.get('otp'))
-            email = request.data['email']
-
-            if not get_user_model().objects.filter(email=email).exists():
-                return Response({'error': 'user not exist'}, status=status.HTTP_400_BAD_REQUEST)
-
-            user = get_user_model().objects.get(email=email)
-
-            if user.is_verified:
-                return Response({'error': 'user is already verify'}, status=status.HTTP_400_BAD_REQUEST)
-
-            if user.otp != otp:
-                return Response({'error': 'wrong otp'}, status=status.HTTP_400_BAD_REQUEST)
-
-            if not (user.otp_end_date - datetime.datetime.now(datetime.timezone.utc)).days > 0:
-                return Response({'error': 'otp expired'}, status=status.HTTP_400_BAD_REQUEST)
-
-            if not user.is_verified:
-                user.is_verified = True
-                user.otp = None
-                user.otp_end_date = None
-                user.save()
-
-            return Response({'email': 'Successfully activated'}, status=status.HTTP_200_OK)
-
-        except Exception as e:
-            print(f'error ............ {e}')
-
-
 class LoginAPIView(generics.GenericAPIView):
-
     serializer_class = LoginSerializer
 
     def post(self, request, *args, **kwargs):
-
         serializer = self.serializer_class(data=request.data)
         serializer.is_valid(raise_exception=True)
 
         return Response(serializer.data, status=status.HTTP_200_OK)
 
-
-class RequestPasswordResetEmail(generics.GenericAPIView):
-    serializer_class = RequestPasswordEmailRequestSerializer
-
-    def post(self, request):
-
-        # serializer = self.serializer_class(data=request.data)
-
-        email = request.data['email']
-
-        if get_user_model().objects.filter(email=email).exists():
-            user = get_user_model().objects.get(email=email)
-            user.otp_token()
-            user.save()
-
-        email_body = f'hello {user.name}, \n Use the code below to reset your password \n {user.otp} \n code will expire in 3 days'
-
-        data = {'email_body': email_body, 'to_email': user.email,
-                'email_subject': 'Reset yout password'}
-
-        Util.send_email(data)
-
-        return Response({'success': 'We have sent you link to reset your password'}, status=status.HTTP_200_OK)
 
 
 class PasswordTokenCheckAPI(generics.GenericAPIView):
@@ -162,7 +218,8 @@ class PasswordTokenCheckAPI(generics.GenericAPIView):
             user = get_user_model().objects.get(id=id)
 
             if not PasswordResetTokenGenerator().check_token(user=user, token=token):
-                return Response({'error': 'Token is not valid, please request a new one'}, status=status.HTTP_401_UNAUTHORIZED)
+                return Response({'error': 'Token is not valid, please request a new one'},
+                                status=status.HTTP_401_UNAUTHORIZED)
 
             return Response({
                 'success': True,
@@ -172,7 +229,8 @@ class PasswordTokenCheckAPI(generics.GenericAPIView):
             }, status=status.HTTP_200_OK)
 
         except DjangoUnicodeDecodeError as identifier:
-            return Response({'error': 'Token is not valid, please request a new one'}, status=status.HTTP_401_UNAUTHORIZED)
+            return Response({'error': 'Token is not valid, please request a new one'},
+                            status=status.HTTP_401_UNAUTHORIZED)
 
 
 class SetNewPasswordAPIView(generics.GenericAPIView):

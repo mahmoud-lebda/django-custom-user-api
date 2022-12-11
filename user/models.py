@@ -1,8 +1,6 @@
 """
 Users Database models.
 """
-import random
-import datetime
 
 from django.db import models
 from django.contrib.auth.models import (
@@ -60,7 +58,3 @@ class User(AbstractBaseUser, PermissionsMixin):
             'refresh': str(refresh),
             'access': str(refresh.access_token)
         }
-
-    def otp_token(self):
-        self.otp = random.randint(100000, 999999)
-        self.otp_end_date = datetime.datetime.now(datetime.timezone.utc) + datetime.timedelta(days=3)

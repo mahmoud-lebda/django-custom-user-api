@@ -79,6 +79,18 @@ class LoginSerializer(serializers.ModelSerializer):
         }
 
 
+class ResendEmailVerifySerializer(serializers.Serializer):
+    email = serializers.EmailField()
+
+    class Meta:
+        fields = ['email']
+
+    def validate(self, attrs):
+        email = attrs.get('email', '')
+
+        return super().validate(attrs)
+
+
 class RequestPasswordEmailRequestSerializer(serializers.Serializer):
     email = serializers.EmailField()
 
