@@ -27,7 +27,7 @@ from core.utils import Util
 
 
 def generate_new_user_otp(user):
-    """Generate Otp token for user"""
+    """Generate Otp token for user 1"""
     now_datetime = datetime.datetime.now(datetime.timezone.utc)
 
     # check if there is no active otp
